@@ -26,6 +26,19 @@ lzma_rs::xz_decompress(&mut f, &mut decomp).unwrap();
 // Decompressed content is now in "decomp"
 ```
 
+Compress a slice into a vector in a `no_std` environment.
+```rust
+#![no_std]
+extern crate alloc;
+use alloc::vec::Vec;
+
+let data: &[u8] = gather_my_data();
+let compressed_data: Vec<u8> = Vec::new();
+
+lzma_rs::lzma_compress(&mut lzma_compress::io::Cursor::new(data), compressed_data).unwrap();
+// Compressed content is now in decomp
+```
+
 ## Encoder
 
 For now, there is also a dumb encoder that only uses byte literals, with many hard-coded constants for code simplicity.

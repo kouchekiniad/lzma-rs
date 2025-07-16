@@ -23,10 +23,12 @@ rust-lzma = "0.6"
 seq-macro = "0.3"
 
 [features]
+default = ["std"]
 enable_logging = ["env_logger", "log"]
-stream = []
+std = []
+stream = ["std"]
 raw_decoder = []
 
 [package.metadata.docs.rs]
-features = ["stream", "raw_decoder"]
+features = ["std", "stream", "raw_decoder"]
 rustdoc-args = ["--cfg", "docsrs"]

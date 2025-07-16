@@ -1,4 +1,4 @@
-use std::io;
+use crate::io;
 
 /// An [`io::Write`] computing a digest on the bytes written.
 pub struct CrcDigestWrite<'a, 'b, W, S>
@@ -33,6 +33,13 @@ where
     }
     fn flush(&mut self) -> io::Result<()> {
         self.write.flush()
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.write.write_all(buf)?;
+        self.digest.update(&buf);
+        Ok(())
     }
 }
 
@@ -72,5 +79,12 @@ where
 
     fn flush(&mut self) -> io::Result<()> {
         self.write.flush()
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.write.write_all(buf)?;
+        self.count += buf.len();
+        Ok(())
     }
 }

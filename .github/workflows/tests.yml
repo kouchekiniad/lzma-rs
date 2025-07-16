@@ -30,3 +30,7 @@ jobs:
         run: cargo build --all-features --verbose
       - name: Tests with all features
         run: cargo test --all-features --verbose
+      - name: Build with no features (i.e., `no_std`)
+        run: cargo build --no-default-features --verbose
+      - name: Test with no features (i.e., `no_std`)
+        run: cargo test --no-default-features --verbose
