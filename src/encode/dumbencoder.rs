@@ -69,6 +69,8 @@ where
         let mut prev_byte = 0u8;
         let mut input_len = 0;
 
+        #[allow(unknown_lints)]
+        #[allow(clippy::unbuffered_bytes)]
         for (out_len, byte_result) in input.bytes().enumerate() {
             let byte = byte_result?;
             let pos_state = out_len & 3;

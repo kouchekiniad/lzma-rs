@@ -10,6 +10,7 @@
 use alloc::vec::Vec;
 use byteorder;
 use core::cmp;
+use core::mem::size_of;
 
 #[derive(Debug, PartialEq, Eq)]
 /// An IO error
@@ -24,7 +25,6 @@ pub enum Error {
     InvalidCursor,
 }
 
-impl core::error::Error for Error {}
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?}", self)
@@ -95,7 +95,7 @@ impl<R: Read> Iterator for ByteIterator<R> {
         let buffer_result = self.reader.get_remaining();
 
         if let Ok(buffer) = buffer_result {
-            if buffer.len() == 0 {
+            if buffer.is_empty() {
                 return None;
             }
             let byte: u8 = buffer[0];
@@ -107,7 +107,7 @@ impl<R: Read> Iterator for ByteIterator<R> {
             return Some(Ok(byte));
         }
 
-        return Some(Err(buffer_result.unwrap_err()));
+        Some(Err(buffer_result.unwrap_err()))
     }
 }
 
@@ -136,7 +136,7 @@ impl<T: AsRef<[u8]>> Read for Cursor<T> {
         if self.pos > self.inner.as_ref().len() {
             Err(Error::InvalidCursor)
         } else {
-            Ok(self.pos as usize)
+            Ok(self.pos)
         }
     }
 
@@ -157,9 +157,7 @@ impl<T: AsRef<[u8]>> Read for Cursor<T> {
 
     fn read(&mut self, dest: &mut [u8]) -> Result<usize> {
         let num_bytes = core::cmp::min(dest.len(), self.get_remaining()?.len());
-        dest[..num_bytes].copy_from_slice(
-            &self.inner.as_ref()[self.pos as usize..(self.pos as usize + num_bytes)],
-        );
+        dest[..num_bytes].copy_from_slice(&self.inner.as_ref()[self.pos..(self.pos + num_bytes)]);
         self.advance_reader_position(num_bytes)?;
         Ok(num_bytes)
     }
@@ -176,7 +174,7 @@ impl<T: AsRef<[u8]>> Read for Cursor<T> {
 }
 
 /// Implement `Read` for a mutable reference to a `Read` type
-impl<'a, T: Read + ?Sized> Read for &'a mut T {
+impl<T: Read> Read for &mut T {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         (**self).read(buf)
     }
@@ -220,30 +218,29 @@ pub trait Write {
 /// All `Cursor<&mut [u8]>` can be written to.
 /// This implementation will write to the underlying non-resizable slice,
 /// overwriting the data at the current cursor position.
-impl<'a> Write for Cursor<&'a mut [u8]> {
+impl Write for Cursor<&mut [u8]> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         // Return an error if the cursor is already out-of-bounds
-        if self.pos as usize > self.inner.len() {
+        if self.pos > self.inner.len() {
             return Err(Error::InvalidCursor);
         }
 
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Ok(0);
         }
 
-        let num_bytes = cmp::min(buf.len(), self.inner.len() - self.pos as usize);
-        self.inner[self.pos as usize..(self.pos as usize + num_bytes)]
-            .copy_from_slice(&buf[..num_bytes]);
+        let num_bytes = cmp::min(buf.len(), self.inner.len() - self.pos);
+        self.inner[self.pos..(self.pos + num_bytes)].copy_from_slice(&buf[..num_bytes]);
         self.pos += num_bytes;
         Ok(num_bytes)
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
-        if self.pos as usize + buf.len() > self.inner.len() {
+        if self.pos + buf.len() > self.inner.len() {
             return Err(Error::OutOfSpace);
         }
 
-        self.inner[self.pos as usize..(self.pos as usize + buf.len())].copy_from_slice(buf);
+        self.inner[self.pos..(self.pos + buf.len())].copy_from_slice(buf);
         self.pos += buf.len();
         Ok(())
     }
@@ -270,7 +267,7 @@ impl Write for Vec<u8> {
 impl Write for Cursor<Vec<u8>> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         // Return an error if the cursor is already out-of-bounds
-        if self.pos as usize > self.inner.len() {
+        if self.pos > self.inner.len() {
             return Err(Error::InvalidCursor);
         }
 
@@ -278,14 +275,14 @@ impl Write for Cursor<Vec<u8>> {
         let bytes_over = (self.pos + buf.len()).saturating_sub(self.inner.len());
         let (bytes_to_splice, bytes_to_extend) = buf.split_at(buf.len() - bytes_over);
 
-        if bytes_to_splice.len() > 0 {
+        if !bytes_to_splice.is_empty() {
             self.inner.splice(
                 self.pos..self.pos + bytes_to_splice.len(),
                 bytes_to_splice.iter().cloned(),
             );
         }
 
-        if bytes_to_extend.len() > 0 {
+        if !bytes_to_extend.is_empty() {
             self.inner.extend_from_slice(bytes_to_extend)
         }
 
@@ -303,7 +300,7 @@ impl Write for Cursor<Vec<u8>> {
     }
 }
 
-impl<'a, T: Write + ?Sized> Write for &'a mut T {
+impl<T: Write + ?Sized> Write for &mut T {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         (*self).write(buf)
     }
@@ -438,7 +435,7 @@ pub struct Take<'a, R: Read> {
     bytes_remaining: usize,
 }
 
-impl<'a, R: Read> Read for Take<'a, R> {
+impl<R: Read> Read for Take<'_, R> {
     fn reader_position(&self) -> Result<usize> {
         self.inner.reader_position()
     }
@@ -450,7 +447,7 @@ impl<'a, R: Read> Read for Take<'a, R> {
         self.inner.advance_reader_position(amt)?;
         self.bytes_remaining -= amt;
 
-        return Ok(());
+        Ok(())
     }
 
     fn get_remaining(&self) -> Result<&[u8]> {
@@ -480,7 +477,7 @@ pub trait IntoReader<R: Read> {
     fn into_reader(self) -> R;
 }
 
-impl<'a, R: Read> IntoReader<R> for R {
+impl<R: Read> IntoReader<R> for R {
     fn into_reader(self) -> R {
         self
     }
@@ -502,27 +499,9 @@ impl BufReader {
     /// Convert the provided type into a `Read` type. Types which already
     /// implement `Read` will return themselves, and types that implement
     /// `AsRef<[u8]>` will return a `Cursor` over the data.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<T: IntoReader<R>, R: Read>(reader: T) -> R {
         reader.into_reader()
-    }
-}
-
-/// Helper trait to convert valid writers into a type implementing [`Write`]
-/// type. Valid for `Vec<u8>`, `&mut [u8]`, and any type implementing [`Write`].
-pub trait IntoWriter {
-    /// Convert the type into a `Write` type.
-    fn into_writer(self) -> impl Write;
-}
-
-impl<W: Write> IntoWriter for W {
-    fn into_writer(self) -> impl Write {
-        self
-    }
-}
-
-impl<'a> IntoWriter for &'a mut [u8] {
-    fn into_writer(self) -> impl Write {
-        Cursor::new(self)
     }
 }
 

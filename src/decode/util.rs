@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<'a, 'b, R> io::Read for CrcDigestRead<'a, 'b, R, u32>
+impl<R> io::Read for CrcDigestRead<'_, '_, R, u32>
 where
     R: io::Read,
 {
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<'a, R> io::Read for CountBufRead<'a, R>
+impl<R> io::Read for CountBufRead<'_, R>
 where
     R: io::BufRead,
 {
@@ -150,7 +150,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<'a, R> std::io::BufRead for CountBufRead<'a, R>
+impl<R> std::io::BufRead for CountBufRead<'_, R>
 where
     R: std::io::BufRead,
 {

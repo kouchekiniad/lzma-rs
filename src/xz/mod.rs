@@ -43,9 +43,7 @@ impl StreamFlags {
         W: io::Write,
     {
         // First byte is currently unused and hard-coded to null.
-        writer
-            .write(&[0x00, self.check_method as u8])
-            .map_err(Into::into)
+        writer.write(&[0x00, self.check_method as u8])
     }
 }
 
@@ -94,7 +92,7 @@ mod test {
     #[test]
     fn test_checkmethod_roundtrip() {
         let mut count_valid = 0;
-        for input in 0..core::u8::MAX {
+        for input in 0..u8::MAX {
             if let Ok(check) = CheckMethod::try_from(input) {
                 let output: u8 = check.into();
                 assert_eq!(input, output);

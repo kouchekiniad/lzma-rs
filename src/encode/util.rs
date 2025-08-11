@@ -22,7 +22,7 @@ where
     }
 }
 
-impl<'a, 'b, W> io::Write for CrcDigestWrite<'a, 'b, W, u32>
+impl<W> io::Write for CrcDigestWrite<'_, '_, W, u32>
 where
     W: io::Write,
 {
@@ -38,7 +38,7 @@ where
     #[cfg(not(feature = "std"))]
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         self.write.write_all(buf)?;
-        self.digest.update(&buf);
+        self.digest.update(buf);
         Ok(())
     }
 }
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<'a, W> io::Write for CountWrite<'a, W>
+impl<W> io::Write for CountWrite<'_, W>
 where
     W: io::Write,
 {

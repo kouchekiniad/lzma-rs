@@ -36,8 +36,9 @@ impl core::fmt::Display for Error {
     }
 }
 
-impl core::error::Error for Error {
-    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::IoError(e) | Error::HeaderTooShort(e) => Some(e),
             Error::LzmaError(_) | Error::XzError(_) => None,
@@ -55,7 +56,7 @@ mod test {
     fn test_display() {
         #[cfg(feature = "std")]
         assert_eq!(
-            Error::IoError(io::Error::new(std::io::ErrorKind::Other, "this is an error")).to_string(),
+            Error::IoError(io::Error::other("this is an error")).to_string(),
             "io error: this is an error"
         );
 
